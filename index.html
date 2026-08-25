@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <title>Painel Git Local</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background-color: #18181b;
+      color: #f4f4f5;
+      padding: 20px;
+      max-width: 900px;
+      margin: 0 auto;
+    }
+    h2 { border-bottom: 2px solid #27272a; padding-bottom: 10px; margin-bottom: 20px; }
+    
+    .section-title {
+      font-size: 14px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: #a1a1aa;
+      margin-top: 20px;
+      margin-bottom: 8px;
+    }
+    
+    .grid-buttons {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+      gap: 10px;
+      margin-bottom: 15px;
+    }
+
+    button {
+      padding: 10px 14px;
+      background: #27272a;
+      color: #f4f4f5;
+      border: 1px solid #3f3f46;
+      border-radius: 6px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+      text-align: left;
+    }
+    button:hover {
+      background: #3f3f46;
+      border-color: #52525b;
+    }
+    button.btn-danger {
+      background: #7f1d1d;
+      border-color: #991b1b;
+    }
+    button.btn-danger:hover {
+      background: #991b1b;
+    }
+    button.btn-success {
+      background: #14532d;
+      border-color: #166534;
+    }
+    button.btn-success:hover {
+      background: #166534;
+    }
+
+    .form-group {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 15px;
+    }
+    input[type="text"] {
+      flex: 1;
+      padding: 10px;
+      background: #09090b;
+      border: 1px solid #27272a;
+      border-radius: 6px;
+      color: #fff;
+      font-size: 14px;
+    }
+
+    pre {
+      background: #09090b;
+      padding: 15px;
+      border: 1px solid #27272a;
+      border-radius: 6px;
+      min-height: 200px;
+      white-space: pre-wrap;
+      font-family: monospace;
+      color: #4ade80;
+      overflow-x: auto;
+    }
+  </style>
+</head>
+<body>
+
+  <h2>Painel Git Local</h2>
+
+  <!-- CONSULTAS -->
+  <div class="section-title">Visualização & Status</div>
+  <div class="grid-buttons">
+    <button onclick="executar('git status')">🔍 git status</button>
+    <button onclick="executar('git log --oneline -n 10')">📜 git log (últimos 10)</button>
+    <button onclick="executar('git branch -a')">🌿 listar branches</button>
+    <button onclick="executar('git remote -v')">🔗 ver remotos</button>
+  </div>
+
+  <!-- STAGING E COMMIT -->
+  <div class="section-title">Preparação & Commits</div>
+  <div class="grid-buttons">
+    <button class="btn-success" onclick="executar('git add .')">➕ git add . (tudo)</button>
+  </div>
+
+  <div class="form-group">
+    <input type="text" id="msgCommit" placeholder="Mensagem do commit...">
+    <button class="btn-success" onclick="fazerCommit()">💾 Criar Commit</button>
+  </div>
+
+  <!-- NUVEM -->
+  <div class="section-title">Sincronização (Nuvem)</div>
+  <div class="grid-buttons">
+    <button onclick="executar('git pull')">⬇️ git pull</button>
+    <button onclick="executar('git push')">⬆️ git push</button>
+  </div>
+
+  <!-- AÇÕES PERIGOSAS -->
+  <div class="section-title">Desfazer Alterações (Cuidado!)</div>
+  <div class="grid-buttons">
+    <button class="btn-danger" onclick="confirmarEExecutar('git restore .', 'Tem certeza que quer descartar todas as alterações de arquivos não commitados?')">⚠️ Descartar alterações locais</button>
+    <button class="btn-danger" onclick="confirmarEExecutar('git reset --soft HEAD~1', 'Desfazer o último commit mantendo as alterações nos arquivos?')">↩️ Desfazer último commit (soft)</button>
+  </div>
+
+  <!-- TERMINAL CUSTOMIZADO -->
+  <div class="section-title">Comando Personalizado</div>
+  <div class="form-group">
+    <input type="text" id="comandoCustom" placeholder="Ex: git checkout -b feature/nova-tela">
+    <button onclick="enviarCustomizado()">Executar</button>
+  </div>
+
+  <h3>Saída do Terminal:</h3>
+  <pre id="terminal">Aguardando comando...</pre>
+
+  <script>
+    const API_URL = 'http://127.0.0.1:3000/api/exec-git';
+
+    async function executar(comando) {
+      const terminal = document.getElementById('terminal');
+      terminal.innerText = `$ ${comando}\nExecutando...`;
+
+      try {
+        const resposta = await fetch(API_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ comando: comando })
+        });
+
+        const dados = await resposta.json();
+        terminal.innerText = `$ ${comando}\n\n${dados.saida || dados.erro || 'Sem resposta de texto.'}`;
+      } catch (erro) {
+        terminal.innerText = 'Erro ao conectar no servidor local. Certifique-se de ter rodado: node server.js';
+      }
+    }
+
+    function fazerCommit() {
+      const msgInput = document.getElementById('msgCommit');
+      const msg = msgInput.value.trim();
+
+      if (!msg) {
+        alert('Por favor, digite uma mensagem para o commit!');
+        return;
+      }
+
+      const msgFormatada = msg.replace(/"/g, '\\"');
+      executar(`git commit -m "${msgFormatada}"`);
+      msgInput.value = '';
+    }
+
+    function enviarCustomizado() {
+      const input = document.getElementById('comandoCustom');
+      if (input.value.trim()) {
+        executar(input.value.trim());
+      }
+    }
+
+    function confirmarEExecutar(comando, mensagemConfirmacao) {
+      if (confirm(mensagemConfirmacao)) {
+        executar(comando);
+      }
+    }
+
+    document.getElementById('comandoCustom').addEventListener('keypress', e => {
+      if (e.key === 'Enter') enviarCustomizado();
+    });
+    document.getElementById('msgCommit').addEventListener('keypress', e => {
+      if (e.key === 'Enter') fazerCommit();
+    });
+  </script>
+
+</body>
+</html>
